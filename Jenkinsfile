@@ -1,6 +1,5 @@
 import hudson.*
 import hudson.security.*
-import java.util.*
 import com.michelin.cio.hudson.plugins.rolestrategy.*
 import java.lang.reflect.*
 import jenkins.model.Jenkins
@@ -411,8 +410,7 @@ return userId.toLowerCase();
 def getRandomPass() {
 
 int randomStringLength = 12
-String charset = (('a'..'z') + ('A'..'Z') + ('0'..'9')).join()
-String randomString = RandomStringUtils.random(randomStringLength, charset.toCharArray())
+String randomString = org.apache.commons.lang.RandomStringUtils.random(randomStringLength, true, true)
 
 return randomString
 
