@@ -410,7 +410,8 @@ return userId.toLowerCase();
 def getRandomPass() {
 
 int randomStringLength = 12
-String randomString = org.apache.commons.lang.RandomStringUtils.random(randomStringLength, true, true)
+def rUtil = new org.apache.commons.lang.RandomStringUtils()
+String randomString = rUtil.random(randomStringLength, true, true)
 
 return randomString
 
