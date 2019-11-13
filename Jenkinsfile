@@ -1,6 +1,6 @@
 import hudson.*
 import hudson.security.*
-import com.michelin.cio.hudson.plugins.rolestrategy.*
+import java.util.*
 import java.lang.reflect.*
 import jenkins.model.Jenkins
 import org.apache.commons.lang.RandomStringUtils
@@ -8,98 +8,104 @@ import hudson.tasks.Mailer
 
 node() {
 
+def g_userList
+def g_file_users_mail_list
+def g_jk_delete_users_list
+def g_repo_url
+def g_repo_branch
+def g_users_file
+def g_admin_user_id
 
-String g_userId
-String g_userPass
-def    g_userInput
-def    g_globalRolesArr
-def    g_projectRolesArr
-
-//stagePreparation()
-//stageInput()
-stageInput2()
-stageCreateUser()
-//stageAssignRoles()
-stageSaveChanges()
-//stageSendEmail()
+try {
+        stagePreparation()
+        stageCreateUsers()
+        stageDeleteUsers()
+        //stageSaveChanges()
+        //stageSendEmail()
+    }
+    catch(Exception e) {
+        println "[UNSPECTED ERROR]: " + e.message
+        error e
+    }
 
 }
 
 def stagePreparation(){
     stage('Preparation') {
- 
-     g_globalRolesArr = []
-     g_projectRolesArr = []
-     def authStrategy = jenkins.model.Jenkins.instance.getAuthorizationStrategy()
-     RoleBasedAuthorizationStrategy roleAuthStrategy = (RoleBasedAuthorizationStrategy) authStrategy
-     RoleMap globalRoles = roleAuthStrategy.getRoleMap(RoleBasedAuthorizationStrategy.GLOBAL);
-     RoleMap projectRoles = roleAuthStrategy.getRoleMap(RoleBasedAuthorizationStrategy.PROJECT);
+        
+        // Clean Workspace
+        deleteDir()
+        
+        // Set and initialise global vars
+        g_repo_url = 'https://github.com/jmartinspt/jenkins.git'
+        g_repo_branch = '*/master'
+        g_users_file = 'users.json'
+        g_file_users_mail_list = []
+        g_jk_delete_users_list = []
+        g_admin_user_id = 'admin'
 
-
-        echo '*Global Roles*'
-        globalRoles.getRoles().each{gr ->
-           g_globalRolesArr << gr.getName()
+        checkout([$class: 'GitSCM', branches: [[name: g_repo_branch]], doGenerateSubmoduleConfigurations: false, extensions: [], submoduleCfg: [], userRemoteConfigs: [[credentialsId: 'JOEL-GITHUB', url: g_repo_url]]])
+    
+        g_userList = readJSON file: g_users_file, text: ''
+        
+       if (g_userList.length == 0) {
+            error "User List empty"
         }
         
-        echo '*Project Roles*'
-        projectRoles.getRoles().each{pr ->
-           g_projectRolesArr << pr.getName()
-        }    
-    
+        g_userList.each {
+            g_file_users_mail_list.add(it.mail)  
+        }
+        
+        def users = hudson.model.User.getAll()
+        
+        users.each {
+            println("ID -> " + it.getId())
+            
+            def email_address = null
+            def emailProperty = it.getProperty(hudson.tasks.Mailer.UserProperty)
+            
+            if(emailProperty != null) {
+                email_address = emailProperty.getAddress()
+                
+                if (!(g_file_users_mail_list.contains(email_address)) && (it.getId() != g_admin_user_id)) {
+                    g_jk_delete_users_list.add(it.getId())
+                    echo it.getId() + ' - ' + it.getFullName() +" will be deleted!!!"
+                }
+            }
+        }
     }
 }
 
 
-def stageInput(){
-    stage('Input') {
-        
-    g_userInput = input id: 'UserInput', message: 'Parâmetros:', parameters: [string(defaultValue: '', description: 'Email do colaborador', name: 'I_EMAIL', trim: false), choice(choices: g_globalRolesArr, description: 'Perfil do Colaborador', name: 'I_PERFIL'), choice(choices: g_projectRolesArr, description: 'Equipa do colaborador', name: 'I_EQUIPA')]          
-        
+def stageCreateUsers(){
+    stage('Create Users') {
+
+
+        g_userList.each {
+            
+            def user_id        = getUserFromMail(it.mail)
+            def user_full_name = it.name
+            def user_pass      = "123"
+            def user_mail      = it.mail
+            
+            createUser(user_id, user_full_name, user_pass, user_mail)    
+        }
+     
     }   
 }
 
-def stageInput2(){
-    stage('Input2') {
-        
-    g_userInput = input id: 'UserInput', message: 'Parameters:', parameters: [string(defaultValue: '', description: 'Email do colaborador', name: 'I_EMAIL', trim: false), string(defaultValue: '', description: 'Equipa do colaborador', name: 'I_TEAM', trim: false)]          
-        
+def stageDeleteUsers(){
+    stage('Delete Users') {
+
+        g_jk_delete_users_list.each {
+            delete_user_by_id(it)    
+        }
+      
     }   
 }
 
-
-def stageCreateUser(){
-    stage('Create User') {
-
-    g_userId = getUserFromMail(g_userInput.I_EMAIL)
-    g_userPass = getRandomPass()      
-        
-    createUser(g_userId ,g_userPass, g_userInput.I_EMAIL)
-    
-    println 'userPass'
-    println g_userPass
-
-    }   
-}
-
-def stageAssignRoles(){
-    stage('Assign Roles') {
-        
-    assignGlobalRole(g_userId,g_userInput.I_PERFIL)
-    assignProjectRole(g_userId,g_userInput.I_EQUIPA)      
-        
-    }   
-}
-
-def stageSaveChanges(){
-    stage('Save changes') {
-        
-    jenkins.model.Jenkins.instance.save()     
-        
-    }   
-}
 
 def stageSendEmail(){
-    
     stage('Send Email'){
         
     emailext bcc: '', 
@@ -321,86 +327,46 @@ def stageSendEmail(){
 }
 
 //Criacao do usuário
-def createUser(pUser, pPass, pMail){
+def createUser(String p_id, String p_full_name, String p_password, String p_mail){
 
-    try {
-       // jenkins.model.Jenkins.instance.securityRealm.createAccount(pUser, pPass);
-        def instance = jenkins.model.Jenkins.instance
-        def user = instance.securityRealm.createAccount(pUser, pPass)
-        user.addProperty(new Mailer.UserProperty(pMail));
-        println "Utilizador '" + pUser + "' criado com sucesso."   ;
+        def msg_user_str = p_full_name + '(' +p_id+ ')'
+        
+        if ( hudson.model.User.get(p_id, false) == null ) {
+   
+        def user = hudson.model.User.get(p_id)
+        user.setFullName(p_full_name)
+        
+        def email_param = new hudson.tasks.Mailer.UserProperty(p_mail)
+        user.addProperty(email_param)
+        
+        def pw_param = hudson.security.HudsonPrivateSecurityRealm.Details.fromPlainPassword(p_password)
+        user.addProperty(pw_param)
+        
+        user.save()
+        
+        println 'User ' + msg_user_str +  ' created';
+        }
+        else {
+        println 'User ' + msg_user_str +  ' already exists!';
+        }
+    
+}
+
+def delete_user_by_id(String p_id) {
+    
+    def user         = hudson.model.User.get(p_id, false)
+    def msg_user_str = p_full_name + '(' +p_id+ ')'
+    
+    if (user != null) {
+      user.delete()
+      
+      println 'User ' + msg_user_str +  ' deleted';
     }
-    catch(Exception e) {
-        println "[ERRO]: " + e.message
-    }
-}
+  }
 
-
-def assignProjectRole(pUser, pProjectRole){
-	
-	def authStrategy = jenkins.model.Jenkins.instance.getAuthorizationStrategy()
-
-	
-	//criacao de role e atribuicao
-	if(authStrategy instanceof RoleBasedAuthorizationStrategy){
-		RoleBasedAuthorizationStrategy roleAuthStrategy = (RoleBasedAuthorizationStrategy) authStrategy
-
-		RoleMap roles = roleAuthStrategy.getRoleMap(RoleBasedAuthorizationStrategy.PROJECT);
-
-		Role targetRole = roles.getRole(pProjectRole);
-
-		if (targetRole != null) {
-			roleAuthStrategy.assignRole(RoleBasedAuthorizationStrategy.PROJECT, targetRole, pUser);
-			jenkins.model.Jenkins.instance.setAuthorizationStrategy(roleAuthStrategy)
-			println "Regra '"+pProjectRole+"' associada ao usuario ."
-		}
-		else{
-			println "ERRO: Regra '"+pProjectRole+"' nao encontrada."
-		}	  
-
-		println "OK"
-	}
-	else {
-		println "Role Strategy Plugin nao encontrado!"
-	}
-}
-
-def assignGlobalRole(pUser, pProjectRole){
-	
-	def authStrategy =  jenkins.model.Jenkins.instance.getAuthorizationStrategy()
-
-	
-	//criacao de role e atribuicao
-	if(authStrategy instanceof RoleBasedAuthorizationStrategy){
-		RoleBasedAuthorizationStrategy roleAuthStrategy = (RoleBasedAuthorizationStrategy) authStrategy
-
-		RoleMap roles = roleAuthStrategy.getRoleMap(RoleBasedAuthorizationStrategy.GLOBAL);
-
-		Role targetRole = roles.getRole(pProjectRole);
-
-		if (targetRole != null) {
-			roleAuthStrategy.assignRole(RoleBasedAuthorizationStrategy.GLOBAL, targetRole, pUser);
-			
-			jenkins.model.Jenkins.instance.setAuthorizationStrategy(roleAuthStrategy)
-			
-			println "Regra '"+pProjectRole+"' associada ao usuario ."
-		}
-		else{
-			println "ERRO: Regra '"+pProjectRole+"' nao encontrada."
-		}	  
-
-		println "OK"
-	}
-	else {
-		println "Role Strategy Plugin nao encontrado!"
-	}
-}
-
-
-def getUserFromMail(v_email) {
+def getUserFromMail(String v_email) {
    
    String userId = v_email.split("@")[0];
-
 
 return userId.toLowerCase();
 
@@ -410,18 +376,12 @@ return userId.toLowerCase();
 def getRandomPass() {
 
 int randomStringLength = 12
-def rUtil = new org.apache.commons.lang.RandomStringUtils()
-String randomString = rUtil.random(randomStringLength, true, true)
+String charset = (('a'..'z') + ('A'..'Z') + ('0'..'9')).join()
+String randomString = RandomStringUtils.random(randomStringLength, charset.toCharArray())
 
 return randomString
 
 }
 
-
-/*
-Sugestão de criação de regras
-========================================
-fonte: https://documentation.cloudbees.com/docs/cje-user-guide/rbac-sect-sample-configs.html
-*/
 
 
