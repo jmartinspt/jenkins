@@ -4,11 +4,15 @@
  "mail" : "Joel.Martins@test.com" 
 },
 {
- "name" : "Rui Simões",
- "mail" : "Rui.Simoes@test.com" 
+ "name" : "Reginaldo Júnior",
+ "mail" : "reginaldo.junior@test.com" 
 },
 {
  "name" : "Reginaldo Júnior",
- "mail" : "reginaldo.junior@test.com" 
+ "mail" : "reginaldo.junior@test2.com" 
+},
+{
+ "name" : "Test User",
+ "mail" : "test.user@test.com"
 }
 ]
