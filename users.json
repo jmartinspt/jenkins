@@ -5,14 +5,26 @@
 },
 {
  "name" : "Reginaldo Júnior",
- "mail" : "reginaldo.junior@test.com" 
-},
-{
- "name" : "Reginaldo Júnior",
  "mail" : "reginaldo.junior@test2.com" 
 },
 {
  "name" : "Test User",
  "mail" : "test.user@test.com"
+},
+{
+ "name" : "Test User",
+ "mail" : "test.user@test3.com"
+},
+{
+ "name" : "Test User",
+ "mail" : "test.user@test4.com"
+},
+{
+ "name" : "Test User",
+ "mail" : "test.user@test5.com"
+},
+{
+ "name" : "Test User",
+ "mail" : "test.user@test6.com"
 }
 ]
