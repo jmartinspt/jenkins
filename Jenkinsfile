@@ -6,27 +6,28 @@ import jenkins.model.Jenkins
 import org.apache.commons.lang.RandomStringUtils
 import hudson.tasks.Mailer
 
+
 node() {
 
 def g_userList
 def g_file_users_mail_list
+def g_jk_users_list
 def g_jk_delete_users_list
 def g_repo_url
 def g_repo_branch
 def g_users_file
 def g_admin_user_id
 
-try {
+//try {
         stagePreparation()
         stageCreateUsers()
         stageDeleteUsers()
-        //stageSaveChanges()
         //stageSendEmail()
-    }
-    catch(Exception e) {
-        println "[UNSPECTED ERROR]: " + e.message
-        error e
-    }
+ //   }
+//    catch(Exception e) {
+//        println "[UNSPECTED ERROR]: " + e.message
+//        error e
+//    }
 
 }
 
@@ -41,6 +42,7 @@ def stagePreparation(){
         g_repo_branch = '*/master'
         g_users_file = 'users.json'
         g_file_users_mail_list = []
+        g_jk_users_list        = []
         g_jk_delete_users_list = []
         g_admin_user_id = 'admin'
 
@@ -48,9 +50,8 @@ def stagePreparation(){
     
         g_userList = readJSON file: g_users_file, text: ''
         
-       if (g_userList.length == 0) {
-            error "User List empty"
-        }
+        // Verify if list is not empty
+        assert !g_userList.empty
         
         g_userList.each {
             g_file_users_mail_list.add(it.mail)  
@@ -59,7 +60,7 @@ def stagePreparation(){
         def users = hudson.model.User.getAll()
         
         users.each {
-            println("ID -> " + it.getId())
+            println("Jenkins User ID -> " + it.getId())
             
             def email_address = null
             def emailProperty = it.getProperty(hudson.tasks.Mailer.UserProperty)
@@ -67,9 +68,16 @@ def stagePreparation(){
             if(emailProperty != null) {
                 email_address = emailProperty.getAddress()
                 
-                if (!(g_file_users_mail_list.contains(email_address)) && (it.getId() != g_admin_user_id)) {
-                    g_jk_delete_users_list.add(it.getId())
-                    echo it.getId() + ' - ' + it.getFullName() +" will be deleted!!!"
+                if  (it.getId() != g_admin_user_id) {
+                
+                    def user_obj  = [id:it.getId(), mail:email_address]
+                    
+                    g_jk_users_list << user_obj    
+                    
+                    if (!(g_file_users_mail_list.contains(email_address))) {
+                        g_jk_delete_users_list.add(it.getId())
+                        echo it.getId() + ' - ' + it.getFullName() +" will be deleted!!!"
+                    }
                 }
             }
         }
@@ -80,15 +88,28 @@ def stagePreparation(){
 def stageCreateUsers(){
     stage('Create Users') {
 
-
         g_userList.each {
             
-            def user_id        = getUserFromMail(it.mail)
+            def user_id        = null
             def user_full_name = it.name
             def user_pass      = "123"
             def user_mail      = it.mail
             
-            createUser(user_id, user_full_name, user_pass, user_mail)    
+            def find_user = g_jk_users_list.find { it.mail == user_mail }
+            
+            if ( find_user == null) {
+                
+                user_id        = getUserFromMail(user_mail)
+                createUser(user_id, user_full_name, user_pass, user_mail)  
+    
+                println 'User ' + user_full_name + ' (' +user_id+ ') ' +  'created';
+                
+                // Update jenkins users list
+                g_jk_users_list << [id:user_id, mail:user_mail]
+            }
+            else {
+                println 'The email '+ user_mail +' is already used by other user ('+ find_user.id + ')!';
+            }
         }
      
     }   
@@ -329,10 +350,6 @@ def stageSendEmail(){
 //Criacao do usuário
 def createUser(String p_id, String p_full_name, String p_password, String p_mail){
 
-        def msg_user_str = p_full_name + '(' +p_id+ ')'
-        
-        if ( hudson.model.User.get(p_id, false) == null ) {
-   
         def user = hudson.model.User.get(p_id)
         user.setFullName(p_full_name)
         
@@ -343,32 +360,36 @@ def createUser(String p_id, String p_full_name, String p_password, String p_mail
         user.addProperty(pw_param)
         
         user.save()
-        
-        println 'User ' + msg_user_str +  ' created';
-        }
-        else {
-        println 'User ' + msg_user_str +  ' already exists!';
-        }
     
 }
 
 def delete_user_by_id(String p_id) {
     
     def user         = hudson.model.User.get(p_id, false)
-    def msg_user_str = p_full_name + '(' +p_id+ ')'
     
     if (user != null) {
       user.delete()
       
-      println 'User ' + msg_user_str +  ' deleted';
+      println 'User with id ' + p_id +  ' deleted';
     }
   }
 
 def getUserFromMail(String v_email) {
    
-   String userId = v_email.split("@")[0];
+   String candidate_user_id = (v_email.split("@")[0]).toLowerCase()
+   String user_id = candidate_user_id
+   int aux_value = 0
+   
 
-return userId.toLowerCase();
+   while ( g_jk_users_list.find { it.id == user_id } != null) {
+      
+      aux_value++
+      user_id = candidate_user_id + "_" + aux_value
+      println('Try id - ' + user_id)
+      
+   } 
+
+return user_id;
 
 }
 
