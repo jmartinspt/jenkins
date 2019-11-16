@@ -1,30 +1,34 @@
 [
 {
- "name" : "Joel Martins",
- "mail" : "Joel.Martins@test.com" 
+ "name" : "Beatriz Cavaleiro",
+ "mail" : "Beatriz.Cavaleiro@criticaltechworks.com"
 },
 {
- "name" : "Reginaldo Júnior",
- "mail" : "reginaldo.junior@test2.com" 
+ "name" : "Gabriela Fernandes",
+ "mail" : "Gabriela.Fernandes@criticaltechworks.com"
 },
 {
- "name" : "Test User",
- "mail" : "test.user@test.com"
+ "name" : "Gabriela Alves",
+ "mail" : "Gabriela.Alves@criticaltechworks.com"
 },
 {
- "name" : "Test User",
- "mail" : "test.user@test3.com"
+ "name" : "Pedro Fernandes",
+ "mail" : "Pedro.Fernandes@criticaltechworks.com"
 },
 {
- "name" : "Test User",
- "mail" : "test.user@test4.com"
+ "name" : "Tiago José Ribeiro",
+ "mail" : "TiagoJose.Ribeiro@criticaltechworks.com"
 },
 {
- "name" : "Test User",
- "mail" : "test.user@test5.com"
+ "name" : "Diogo Cruz",
+ "mail" : "Diogo.Cruz@criticaltechworks.com"
 },
 {
- "name" : "Test User",
- "mail" : "test.user@test6.com"
+ "name" : "Aitor Amorim",
+ "mail" : "Aitor.Amorim@criticaltechworks.com"
+},
+{
+ "name" : "Diogo Oliveira",
+ "mail" : "Diogo.Oliveira@criticaltechworks.com"
 }
 ]
